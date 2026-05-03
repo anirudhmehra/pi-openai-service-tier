@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import {
@@ -10,6 +10,7 @@ import {
   isServiceTier,
   parseModelKey,
   parseModels,
+  readConfig,
   resolveConfig,
   resolveServiceTierForModel,
   supportsServiceTier,
@@ -72,6 +73,25 @@ test("resolves project config over global config", () => {
   }
 });
 
+test("ignores malformed config and invalid service tiers", () => {
+  const cwd = tempDir();
+  const home = tempDir();
+  try {
+    const paths = configPaths(cwd, home);
+    mkdirSync(dirname(paths.global), { recursive: true });
+    writeFileSync(paths.global, "{ bad json", "utf8");
+    assert.equal(readConfig(paths.global), undefined);
+
+    writeFileSync(paths.global, JSON.stringify({ active: true, serviceTier: "turbo" }), "utf8");
+    const config = resolveConfig(cwd, home);
+    assert.equal(config.active, true);
+    assert.equal(config.serviceTier, "priority");
+  } finally {
+    rmSync(cwd, { recursive: true, force: true });
+    rmSync(home, { recursive: true, force: true });
+  }
+});
+
 test("applies configured tier only when active and model is allow-listed", () => {
   const supportedModels = parseModels(DEFAULT_SUPPORTED_MODELS) ?? [];
   assert.equal(supportsServiceTier(openAIModel, supportedModels), true);
@@ -92,6 +112,14 @@ test("applies configured tier only when active and model is allow-listed", () =>
     ),
     undefined,
   );
+  assert.equal(
+    resolveServiceTierForModel(
+      { provider: "openai", id: "gpt-5.5", api: "openai-completions" } as never,
+      { active: true, serviceTier: "priority" },
+      supportedModels,
+    ),
+    undefined,
+  );
 });
 
 test("full provider options include serviceTier for Pi cost accounting", () => {
@@ -105,7 +133,9 @@ test("resolveConfig creates default global config", () => {
   const cwd = tempDir();
   const home = tempDir();
   try {
+    const paths = configPaths(cwd, home);
     const config = resolveConfig(cwd, home);
+    assert.equal(existsSync(paths.global), true);
     assert.equal(config.active, false);
     assert.equal(config.serviceTier, "priority");
     assert.equal(config.supportedModels.some((model) => model.provider === "openai" && model.id === "gpt-5.5"), true);

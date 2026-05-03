@@ -1,6 +1,6 @@
 {
   "name": "pi-openai-service-tier",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Cost-correct OpenAI service tier / fast mode extension for pi",
   "type": "module",
   "license": "MIT",
@@ -15,6 +15,10 @@
     "priority",
     "service-tier"
   ],
+  "homepage": "https://github.com/anirudhmehra/pi-openai-service-tier#readme",
+  "bugs": {
+    "url": "https://github.com/anirudhmehra/pi-openai-service-tier/issues"
+  },
   "repository": {
     "type": "git",
     "url": "git+https://github.com/anirudhmehra/pi-openai-service-tier.git"
@@ -22,6 +26,7 @@
   "files": [
     "index.ts",
     "README.md",
+    "CHANGELOG.md",
     "LICENSE"
   ],
   "pi": {
@@ -30,6 +35,8 @@
     ]
   },
   "scripts": {
+    "check": "npm run typecheck && npm test && npm run pack:dry-run",
+    "pack:dry-run": "npm pack --dry-run",
     "test": "node --test --experimental-strip-types index.test.ts",
     "typecheck": "tsc --noEmit"
   },
@@ -45,5 +52,6 @@
   },
   "engines": {
     "node": ">=22.0.0"
-  }
+  },
+  "packageManager": "npm@11.6.2"
 }
