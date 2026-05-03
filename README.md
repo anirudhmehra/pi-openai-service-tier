@@ -1,5 +1,9 @@
 # pi-openai-service-tier
 
+[![CI](https://github.com/anirudhmehra/pi-openai-service-tier/actions/workflows/ci.yml/badge.svg)](https://github.com/anirudhmehra/pi-openai-service-tier/actions/workflows/ci.yml)
+[![GitHub release](https://img.shields.io/github/v/release/anirudhmehra/pi-openai-service-tier?include_prereleases&sort=semver)](https://github.com/anirudhmehra/pi-openai-service-tier/releases)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+
 Cost-correct OpenAI service tier / fast mode for [pi](https://github.com/badlogic/pi-mono/tree/main/packages/coding-agent).
 
 Most fast-mode extensions only patch the outgoing JSON payload:

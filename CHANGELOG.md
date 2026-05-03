@@ -6,6 +6,7 @@
 - Add `npm run check` and `npm run pack:dry-run` scripts.
 - Add GitHub Actions CI.
 - Add issue tracker/homepage package metadata.
+- Add contributing/security docs, issue templates, PR template, and CODEOWNERS.
 
 ## 0.1.0 - 2026-05-03
 
