@@ -34,7 +34,13 @@ So Pi gets both the OpenAI request field and the matching Pi-side service-tier c
 ## Install
 
 ```bash
-pi install git:github.com/anirudhmehra/pi-openai-service-tier
+pi install npm:pi-openai-service-tier
+```
+
+GitHub install also works:
+
+```bash
+pi install https://github.com/anirudhmehra/pi-openai-service-tier
 ```
 
 Then start Pi normally:
@@ -52,7 +58,7 @@ pi --provider openai-codex --model gpt-5.5 --fast
 Try without installing:
 
 ```bash
-pi -e git:github.com/anirudhmehra/pi-openai-service-tier --provider openai-codex --model gpt-5.5 --fast
+pi -e npm:pi-openai-service-tier --provider openai-codex --model gpt-5.5 --fast
 ```
 
 ## Commands
@@ -150,16 +156,28 @@ Requires Pi / `@mariozechner/pi-ai` `>=0.72.1` and Node.js `>=22`.
 
 ## Updating
 
+For npm installs:
+
+```bash
+pi update npm:pi-openai-service-tier
+```
+
 For git installs, re-run:
 
 ```bash
-pi install git:github.com/anirudhmehra/pi-openai-service-tier
+pi install https://github.com/anirudhmehra/pi-openai-service-tier
 ```
 
 ## Uninstall
 
 ```bash
-pi remove git:github.com/anirudhmehra/pi-openai-service-tier
+pi remove npm:pi-openai-service-tier
+```
+
+or, if installed from git:
+
+```bash
+pi remove https://github.com/anirudhmehra/pi-openai-service-tier
 ```
 
 If desired, remove config files manually:

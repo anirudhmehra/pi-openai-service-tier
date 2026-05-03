@@ -1,6 +1,6 @@
 {
   "name": "pi-openai-service-tier",
-  "version": "0.1.3",
+  "version": "0.1.4",
   "description": "Cost-correct OpenAI service tier / fast mode extension for pi",
   "type": "module",
   "license": "MIT",
@@ -27,12 +27,15 @@
     "index.ts",
     "README.md",
     "CHANGELOG.md",
-    "LICENSE"
+    "LICENSE",
+    "assets/social-preview.svg",
+    "assets/social-preview.png"
   ],
   "pi": {
     "extensions": [
       "./index.ts"
-    ]
+    ],
+    "image": "https://raw.githubusercontent.com/anirudhmehra/pi-openai-service-tier/main/assets/social-preview.png"
   },
   "scripts": {
     "check": "npm run typecheck && npm test && npm run pack:dry-run",

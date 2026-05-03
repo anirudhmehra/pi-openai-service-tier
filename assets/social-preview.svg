@@ -1,0 +1,47 @@
+<svg width="1280" height="640" viewBox="0 0 1280 640" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1280" y2="640" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#0B1020"/>
+      <stop offset="1" stop-color="#111827"/>
+    </linearGradient>
+    <linearGradient id="accent" x1="163" y1="168" x2="1118" y2="168" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#22C55E"/>
+      <stop offset="0.5" stop-color="#06B6D4"/>
+      <stop offset="1" stop-color="#A855F7"/>
+    </linearGradient>
+    <filter id="shadow" x="120" y="130" width="1040" height="380" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB">
+      <feFlood flood-opacity="0" result="BackgroundImageFix"/>
+      <feColorMatrix in="SourceAlpha" type="matrix" values="0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 127 0" result="hardAlpha"/>
+      <feOffset dy="20"/>
+      <feGaussianBlur stdDeviation="20"/>
+      <feColorMatrix type="matrix" values="0 0 0 0 0 0 0 0 0 0.0392157 0 0 0 0 0.141176 0 0 0 0.35 0"/>
+      <feBlend mode="normal" in2="BackgroundImageFix" result="effect1_dropShadow_1_2"/>
+      <feBlend mode="normal" in="SourceGraphic" in2="effect1_dropShadow_1_2" result="shape"/>
+    </filter>
+  </defs>
+
+  <rect width="1280" height="640" fill="url(#bg)"/>
+  <circle cx="1114" cy="108" r="160" fill="#0F766E" fill-opacity="0.13"/>
+  <circle cx="171" cy="550" r="190" fill="#1D4ED8" fill-opacity="0.12"/>
+
+  <text x="84" y="86" fill="#E5E7EB" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Inter, Helvetica, Arial, sans-serif" font-size="28" font-weight="600">anirudhmehra / pi-openai-service-tier</text>
+  <text x="84" y="124" fill="#94A3B8" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Inter, Helvetica, Arial, sans-serif" font-size="22">Cost-correct OpenAI fast mode for Pi</text>
+
+  <g filter="url(#shadow)">
+    <rect x="160" y="150" width="960" height="340" rx="24" fill="#0F172A"/>
+    <rect x="160" y="150" width="960" height="56" rx="24" fill="#111827"/>
+    <circle cx="196" cy="178" r="7" fill="#F87171"/>
+    <circle cx="220" cy="178" r="7" fill="#FBBF24"/>
+    <circle cx="244" cy="178" r="7" fill="#34D399"/>
+    <text x="276" y="186" fill="#94A3B8" font-family="SFMono-Regular, ui-monospace, Menlo, Monaco, Consolas, monospace" font-size="18">terminal • pi</text>
+
+    <rect x="184" y="228" width="912" height="4" rx="2" fill="url(#accent)" fill-opacity="0.9"/>
+
+    <text x="206" y="286" fill="#86EFAC" font-family="SFMono-Regular, ui-monospace, Menlo, Monaco, Consolas, monospace" font-size="24">$ pi install npm:pi-openai-service-tier</text>
+    <text x="206" y="354" fill="#E5E7EB" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Inter, Helvetica, Arial, sans-serif" font-size="64" font-weight="700">OpenAI fast mode for Pi</text>
+
+    <text x="206" y="454" fill="#FCD34D" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Inter, Helvetica, Arial, sans-serif" font-size="22" font-weight="600">Pi • OpenAI Responses • OpenAI Codex • TypeScript</text>
+  </g>
+
+  <text x="84" y="590" fill="#64748B" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Inter, Helvetica, Arial, sans-serif" font-size="20">GitHub social preview • upload in repo Settings → General → Social preview</text>
+</svg>

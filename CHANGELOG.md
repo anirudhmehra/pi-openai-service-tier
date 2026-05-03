@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.4 - 2026-05-03
+
+- Make npm the primary install path in the README.
+- Add package/gallery image metadata.
+- Add social preview assets for GitHub and sharing.
+
 ## 0.1.3 - 2026-05-03
 
 - Add `scale` as a supported `openai-responses` service tier, matching OpenAI SDK response types.
