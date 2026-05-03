@@ -1,0 +1,49 @@
+{
+  "name": "pi-openai-service-tier",
+  "version": "0.1.0",
+  "description": "Cost-correct OpenAI service tier / fast mode extension for pi",
+  "type": "module",
+  "license": "MIT",
+  "author": "Anirudh Mehra",
+  "keywords": [
+    "pi-package",
+    "pi-extension",
+    "pi",
+    "openai",
+    "codex",
+    "fast",
+    "priority",
+    "service-tier"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/anirudhmehra/pi-openai-service-tier.git"
+  },
+  "files": [
+    "index.ts",
+    "README.md",
+    "LICENSE"
+  ],
+  "pi": {
+    "extensions": [
+      "./index.ts"
+    ]
+  },
+  "scripts": {
+    "test": "node --test --experimental-strip-types index.test.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "peerDependencies": {
+    "@mariozechner/pi-ai": ">=0.72.1",
+    "@mariozechner/pi-coding-agent": ">=0.72.1"
+  },
+  "devDependencies": {
+    "@mariozechner/pi-ai": "^0.72.1",
+    "@mariozechner/pi-coding-agent": "^0.72.1",
+    "@types/node": "^24.3.0",
+    "typescript": "^5.9.3"
+  },
+  "engines": {
+    "node": ">=22.0.0"
+  }
+}
