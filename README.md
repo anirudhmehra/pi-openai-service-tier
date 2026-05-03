@@ -25,6 +25,7 @@ So Pi gets both the OpenAI request field and the matching Pi-side service-tier c
 - `/fast` toggles cost-correct `priority` tier.
 - `/openai-tier` selects `priority`, `flex`, `default`, or `auto`.
 - Works with Pi's OpenAI Responses and OpenAI Codex Responses providers.
+- Avoids sending tiers that a provider does not support.
 - Includes `gpt-5.4` and `gpt-5.5` OpenAI/Codex models by default.
 - Does **not** change model, reasoning level, prompts, tools, or `text.verbosity`.
 - Does **not** make network calls of its own.
@@ -111,19 +112,29 @@ If neither file exists, the extension creates this global default on session sta
 | --- | --- | --- | --- |
 | `persistState` | boolean | `true` | Whether `/fast` and `/openai-tier` persist state across sessions. |
 | `active` | boolean | `false` | Whether a service tier is active. |
-| `serviceTier` | `priority` \| `flex` \| `default` \| `auto` | `priority` | Service tier passed to Pi's OpenAI provider option. |
+| `serviceTier` | `priority` \| `flex` \| `default` \| `auto` | `priority` | Service tier passed to Pi's OpenAI provider option when supported by the current provider. |
 | `supportedModels` | string[] | see above | Allow-list of `provider/model-id` pairs that should receive `serviceTier`. |
 
 Add/remove allow-listed models by editing `supportedModels`.
 
 ## Supported providers/APIs
 
-The extension applies tiers only when both are true:
+The extension applies tiers only when all of these are true:
 
-1. the model appears in `supportedModels`, and
+1. the model appears in `supportedModels`,
 2. the model uses one of these Pi APIs:
    - `openai-responses`
-   - `openai-codex-responses`
+   - `openai-codex-responses`, and
+3. the selected tier is supported by that API.
+
+Provider-specific tier support:
+
+| Pi API | Supported tiers |
+| --- | --- |
+| `openai-responses` | `priority`, `flex`, `default`, `auto` |
+| `openai-codex-responses` | `priority` |
+
+If a tier is configured but unsupported by the current model/provider, the extension leaves `serviceTier` unset for that request instead of sending an invalid value.
 
 ## Compatibility notes
 

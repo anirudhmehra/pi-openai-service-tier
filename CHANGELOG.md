@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.2 - 2026-05-03
+
+- Avoid sending unsupported service tiers to OpenAI Codex Responses.
+- Treat `openai-codex-responses` as `priority`-only; `flex`, `default`, and `auto` are left unset for Codex requests.
+- Document provider-specific tier support.
+
 ## 0.1.1 - 2026-05-03
 
 - Polish README with clearer install, config, update, uninstall, compatibility, and security notes.

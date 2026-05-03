@@ -13,6 +13,8 @@ import {
   readConfig,
   resolveConfig,
   resolveServiceTierForModel,
+  supportedServiceTiersForModel,
+  supportsConfiguredServiceTier,
   supportsServiceTier,
   type ServiceTier,
 } from "./index.ts";
@@ -92,7 +94,12 @@ test("ignores malformed config and invalid service tiers", () => {
   }
 });
 
-test("applies configured tier only when active and model is allow-listed", () => {
+test("knows provider-specific service tier support", () => {
+  assert.deepEqual([...supportedServiceTiersForModel(openAIModel)], ["priority", "flex", "default", "auto"]);
+  assert.deepEqual([...supportedServiceTiersForModel(codexModel)], ["priority"]);
+});
+
+test("applies configured tier only when active, allow-listed, and tier-supported", () => {
   const supportedModels = parseModels(DEFAULT_SUPPORTED_MODELS) ?? [];
   assert.equal(supportsServiceTier(openAIModel, supportedModels), true);
   assert.equal(supportsServiceTier(codexModel, supportedModels), true);
@@ -102,6 +109,14 @@ test("applies configured tier only when active and model is allow-listed", () =>
   );
   assert.equal(
     resolveServiceTierForModel(openAIModel, { active: false, serviceTier: "priority" }, supportedModels),
+    undefined,
+  );
+  assert.equal(
+    supportsConfiguredServiceTier(codexModel, { active: true, serviceTier: "flex" }, supportedModels),
+    false,
+  );
+  assert.equal(
+    resolveServiceTierForModel(codexModel, { active: true, serviceTier: "flex" }, supportedModels),
     undefined,
   );
   assert.equal(

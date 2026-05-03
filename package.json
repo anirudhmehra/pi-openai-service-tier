@@ -1,6 +1,6 @@
 {
   "name": "pi-openai-service-tier",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "Cost-correct OpenAI service tier / fast mode extension for pi",
   "type": "module",
   "license": "MIT",

@@ -22,6 +22,9 @@ const CONFIG_BASENAME = "pi-openai-service-tier.json";
 export const SERVICE_TIERS = ["priority", "flex", "default", "auto"] as const;
 export type ServiceTier = (typeof SERVICE_TIERS)[number];
 
+const OPENAI_RESPONSES_SERVICE_TIERS = SERVICE_TIERS;
+const OPENAI_CODEX_RESPONSES_SERVICE_TIERS = ["priority"] as const satisfies readonly ServiceTier[];
+
 export const DEFAULT_SUPPORTED_MODELS = [
   "openai/gpt-5.4",
   "openai/gpt-5.5",
@@ -171,13 +174,31 @@ export function resolveConfig(cwd: string, home = homedir()): ResolvedConfig {
   };
 }
 
+export function supportedServiceTiersForModel(
+  model: Pick<Model<Api>, "api"> | undefined,
+): readonly ServiceTier[] {
+  if (!model) return [];
+  if (model.api === "openai-responses") return OPENAI_RESPONSES_SERVICE_TIERS;
+  if (model.api === "openai-codex-responses") return OPENAI_CODEX_RESPONSES_SERVICE_TIERS;
+  return [];
+}
+
 export function supportsServiceTier(
   model: Pick<Model<Api>, "provider" | "id" | "api"> | undefined,
   supportedModels: readonly SupportedModel[],
 ): boolean {
   if (!model) return false;
-  if (model.api !== "openai-responses" && model.api !== "openai-codex-responses") return false;
+  if (supportedServiceTiersForModel(model).length === 0) return false;
   return supportedModels.some((supported) => supported.provider === model.provider && supported.id === model.id);
+}
+
+export function supportsConfiguredServiceTier(
+  model: Pick<Model<Api>, "provider" | "id" | "api"> | undefined,
+  state: RuntimeState,
+  supportedModels: readonly SupportedModel[],
+): boolean {
+  if (!supportsServiceTier(model, supportedModels)) return false;
+  return supportedServiceTiersForModel(model).includes(state.serviceTier);
 }
 
 export function resolveServiceTierForModel(
@@ -185,7 +206,7 @@ export function resolveServiceTierForModel(
   state: RuntimeState,
   supportedModels: readonly SupportedModel[],
 ): ServiceTier | undefined {
-  if (!state.active || !supportsServiceTier(model, supportedModels)) return undefined;
+  if (!state.active || !supportsConfiguredServiceTier(model, state, supportedModels)) return undefined;
   return state.serviceTier;
 }
 
@@ -219,6 +240,9 @@ function buildFullOpenAIOptions(
 function statusText(ctx: ExtensionContext, state: RuntimeState, config: ResolvedConfig): string {
   const serviceTier = resolveServiceTierForModel(ctx.model, state, config.supportedModels);
   if (serviceTier) return `${ctx.model?.id ?? "model"} ${serviceTier}`;
+  if (state.active && supportsServiceTier(ctx.model, config.supportedModels)) {
+    return `${ctx.model?.id ?? "model"} ${state.serviceTier} unsupported`;
+  }
   if (state.active) return `tier requested; unsupported ${modelKey(ctx.model)}`;
   return "";
 }
@@ -254,6 +278,14 @@ export default function openAIServiceTier(pi: ExtensionAPI): void {
     const tier = resolveServiceTierForModel(ctx.model, state, config.supportedModels);
     if (tier) {
       ctx.ui.notify(`OpenAI service tier: ${tier} for ${modelKey(ctx.model)}. Cost accounting uses Pi's serviceTier option.`, "info");
+      return;
+    }
+    if (state.active && supportsServiceTier(ctx.model, config.supportedModels)) {
+      const supportedTiers = supportedServiceTiersForModel(ctx.model).join(", ");
+      ctx.ui.notify(
+        `OpenAI service tier ${state.serviceTier} is not supported by ${modelKey(ctx.model)}; no service_tier will be sent. Supported tiers: ${supportedTiers}.`,
+        "warning",
+      );
       return;
     }
     if (state.active) {
@@ -387,6 +419,7 @@ export const _test = {
   FLAG_FAST,
   STATUS_KEY,
   buildFullOpenAIOptions,
+  supportedServiceTiersForModel,
   modelKey,
   statusText,
 };
