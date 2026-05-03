@@ -19,7 +19,7 @@ const FLAG_FAST = "fast";
 const STATUS_KEY = "pi-openai-service-tier";
 const CONFIG_BASENAME = "pi-openai-service-tier.json";
 
-export const SERVICE_TIERS = ["priority", "flex", "default", "auto"] as const;
+export const SERVICE_TIERS = ["priority", "flex", "default", "auto", "scale"] as const;
 export type ServiceTier = (typeof SERVICE_TIERS)[number];
 
 const OPENAI_RESPONSES_SERVICE_TIERS = SERVICE_TIERS;
@@ -372,7 +372,7 @@ export default function openAIServiceTier(pi: ExtensionAPI): void {
   });
 
   pi.registerCommand(COMMAND_TIER, {
-    description: "Set OpenAI service tier (priority, flex, default, auto, off, status)",
+    description: "Set OpenAI service tier (priority, flex, default, auto, scale, off, status)",
     getArgumentCompletions: (prefix) => {
       const values = [...SERVICE_TIERS, "off", "status"];
       const items = values.filter((value) => value.startsWith(prefix.trim().toLowerCase()));
@@ -387,7 +387,7 @@ export default function openAIServiceTier(pi: ExtensionAPI): void {
       }
       if (arg === "off") return setActive(ctx, false);
       if (isServiceTier(arg)) return setTier(ctx, arg);
-      ctx.ui.notify("Usage: /openai-tier [priority|flex|default|auto|off|status]", "error");
+      ctx.ui.notify("Usage: /openai-tier [priority|flex|default|auto|scale|off|status]", "error");
     },
   });
 

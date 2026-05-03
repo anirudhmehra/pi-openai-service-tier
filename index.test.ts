@@ -46,6 +46,7 @@ test("recognizes supported service tiers", () => {
   assert.equal(isServiceTier("flex"), true);
   assert.equal(isServiceTier("default"), true);
   assert.equal(isServiceTier("auto"), true);
+  assert.equal(isServiceTier("scale"), true);
   assert.equal(isServiceTier("fast"), false);
 });
 
@@ -95,7 +96,7 @@ test("ignores malformed config and invalid service tiers", () => {
 });
 
 test("knows provider-specific service tier support", () => {
-  assert.deepEqual([...supportedServiceTiersForModel(openAIModel)], ["priority", "flex", "default", "auto"]);
+  assert.deepEqual([...supportedServiceTiersForModel(openAIModel)], ["priority", "flex", "default", "auto", "scale"]);
   assert.deepEqual([...supportedServiceTiersForModel(codexModel)], ["priority"]);
 });
 

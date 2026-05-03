@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.1.3 - 2026-05-03
+
+- Add `scale` as a supported `openai-responses` service tier, matching OpenAI SDK response types.
+- Keep `openai-codex-responses` priority-only.
+
 ## 0.1.2 - 2026-05-03
 
 - Avoid sending unsupported service tiers to OpenAI Codex Responses.
