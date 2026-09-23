@@ -1,5 +1,17 @@
 # Changelog
 
+## Unreleased
+
+- Add GPT-6 Sol and Luna for OpenAI and OpenAI Codex, and centralize verified model IDs for future additions.
+- Document explicit opt-in for new generations and dated snapshots; unknown versions remain excluded by default.
+
+- Add `additionalSupportedModels` to extend package defaults or a custom base list without freezing future default model updates.
+- Add GPT-6 Astra (`gpt-6-astra`) to the default service-tier allow-list for OpenAI and OpenAI Codex.
+- Support Pi 0.80.8+'s dynamic provider runtime by overlaying the built-in `openai` and `openai-codex` providers without replacing their model catalogs.
+- Add cost-correct priority-tier support for GPT-5.6 Luna, Sol, and Terra on OpenAI and OpenAI Codex.
+- Move Pi imports and peer dependencies to the `@earendil-works` packages.
+- Stop freezing package model defaults in generated config files and migrate the generated 0.1.x allow-list while preserving custom allow-lists.
+
 ## 0.1.4 - 2026-05-03
 
 - Make npm the primary install path in the README.

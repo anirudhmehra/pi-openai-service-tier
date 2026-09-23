@@ -10,8 +10,8 @@ import {
   type Model,
   type ModelThinkingLevel,
   type SimpleStreamOptions,
-} from "@mariozechner/pi-ai";
-import type { ExtensionAPI, ExtensionContext } from "@mariozechner/pi-coding-agent";
+} from "@earendil-works/pi-ai/compat";
+import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
 
 const COMMAND_FAST = "fast";
 const COMMAND_TIER = "openai-tier";
@@ -25,11 +25,24 @@ export type ServiceTier = (typeof SERVICE_TIERS)[number];
 const OPENAI_RESPONSES_SERVICE_TIERS = SERVICE_TIERS;
 const OPENAI_CODEX_RESPONSES_SERVICE_TIERS = ["priority"] as const satisfies readonly ServiceTier[];
 
-export const DEFAULT_SUPPORTED_MODELS = [
-  "openai/gpt-5.4",
-  "openai/gpt-5.5",
-  "openai-codex/gpt-5.4",
-  "openai-codex/gpt-5.5",
+// Keep verified IDs explicit: new versions may have different tier availability or pricing.
+const DEFAULT_SUPPORTED_MODEL_IDS = [
+  "gpt-5.4",
+  "gpt-5.5",
+  "gpt-5.6-luna",
+  "gpt-5.6-sol",
+  "gpt-5.6-terra",
+  "gpt-6-astra",
+  "gpt-6-sol",
+  "gpt-6-luna",
+] as const;
+
+export const DEFAULT_SUPPORTED_MODELS: readonly string[] = ["openai", "openai-codex"].flatMap(
+  (provider) => DEFAULT_SUPPORTED_MODEL_IDS.map((id) => `${provider}/${id}`),
+);
+
+const LEGACY_GENERATED_SUPPORTED_MODELS = [
+  ["openai/gpt-5.4", "openai/gpt-5.5", "openai-codex/gpt-5.4", "openai-codex/gpt-5.5"],
 ] as const;
 
 export interface SupportedModel {
@@ -42,6 +55,7 @@ export interface ConfigFile {
   active?: boolean;
   serviceTier?: ServiceTier;
   supportedModels?: string[];
+  additionalSupportedModels?: string[];
 }
 
 export interface ResolvedConfig {
@@ -62,12 +76,11 @@ type OpenAIServiceTierOptions = SimpleStreamOptions & {
   reasoningEffort?: ModelThinkingLevel | "none";
 };
 
-const DEFAULT_CONFIG: Required<ConfigFile> = {
+const DEFAULT_CONFIG = {
   persistState: true,
   active: false,
   serviceTier: "priority",
-  supportedModels: [...DEFAULT_SUPPORTED_MODELS],
-};
+} satisfies Required<Omit<ConfigFile, "supportedModels" | "additionalSupportedModels">>;
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
@@ -122,6 +135,8 @@ export function readConfig(path: string): ConfigFile | undefined {
     if (isServiceTier(parsed.serviceTier)) config.serviceTier = parsed.serviceTier;
     const supportedModels = normalizeModelKeys(parsed.supportedModels);
     if (supportedModels !== undefined) config.supportedModels = supportedModels;
+    const additionalSupportedModels = normalizeModelKeys(parsed.additionalSupportedModels);
+    if (additionalSupportedModels !== undefined) config.additionalSupportedModels = additionalSupportedModels;
     return config;
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
@@ -138,6 +153,27 @@ export function writeConfig(path: string, config: ConfigFile): void {
     const message = error instanceof Error ? error.message : String(error);
     console.warn(`[pi-openai-service-tier] Failed to write ${path}: ${message}`);
   }
+}
+
+function hasSameModelKeys(left: readonly string[], right: readonly string[]): boolean {
+  if (left.length !== right.length) return false;
+  const rightKeys = new Set(right);
+  return rightKeys.size === right.length && left.every((key) => rightKeys.has(key));
+}
+
+function readConfigWithMigrations(path: string): ConfigFile | undefined {
+  const config = readConfig(path);
+  const supportedModels = config?.supportedModels;
+  if (!supportedModels) return config;
+
+  const isGeneratedDefault = LEGACY_GENERATED_SUPPORTED_MODELS.some((models) =>
+    hasSameModelKeys(supportedModels, models),
+  );
+  if (!isGeneratedDefault) return config;
+
+  const { supportedModels: _supportedModels, ...migrated } = config;
+  writeConfig(path, migrated);
+  return migrated;
 }
 
 function ensureConfigFile(projectPath: string, globalPath: string): void {
@@ -161,8 +197,8 @@ export function resolveConfig(cwd: string, home = homedir()): ResolvedConfig {
   ensureConfigFile(paths.project, paths.global);
 
   const projectExists = existsSync(paths.project);
-  const globalConfig = readConfig(paths.global) ?? {};
-  const projectConfig = readConfig(paths.project) ?? {};
+  const globalConfig = readConfigWithMigrations(paths.global) ?? {};
+  const projectConfig = readConfigWithMigrations(paths.project) ?? {};
   const merged: ConfigFile = { ...DEFAULT_CONFIG, ...globalConfig, ...projectConfig };
 
   return {
@@ -170,7 +206,10 @@ export function resolveConfig(cwd: string, home = homedir()): ResolvedConfig {
     persistState: merged.persistState ?? DEFAULT_CONFIG.persistState,
     active: merged.active ?? DEFAULT_CONFIG.active,
     serviceTier: merged.serviceTier ?? DEFAULT_CONFIG.serviceTier,
-    supportedModels: parseModels(merged.supportedModels) ?? parseModels(DEFAULT_SUPPORTED_MODELS) ?? [],
+    supportedModels: parseModels([...new Set([
+      ...(merged.supportedModels ?? DEFAULT_SUPPORTED_MODELS),
+      ...(merged.additionalSupportedModels ?? []),
+    ])]) ?? [],
   };
 }
 
@@ -266,7 +305,6 @@ export default function openAIServiceTier(pi: ExtensionAPI): void {
       ...(readConfig(nextConfig.configPath) ?? {}),
       active: state.active,
       serviceTier: state.serviceTier,
-      supportedModels: nextConfig.supportedModels.map((model) => `${model.provider}/${model.id}`),
     });
   }
 
@@ -313,7 +351,6 @@ export default function openAIServiceTier(pi: ExtensionAPI): void {
       ...(readConfig(config.configPath) ?? {}),
       ...(config.persistState ? { active: true } : {}),
       serviceTier,
-      supportedModels: config.supportedModels.map((model) => `${model.provider}/${model.id}`),
     });
     config = { ...config, active: state.active, serviceTier };
     updateStatus(ctx);
@@ -326,7 +363,7 @@ export default function openAIServiceTier(pi: ExtensionAPI): void {
     default: false,
   });
 
-  pi.registerProvider("pi-openai-service-tier:openai-responses", {
+  pi.registerProvider("openai", {
     api: "openai-responses",
     streamSimple(model, context: Context, options?: SimpleStreamOptions) {
       const serviceTier = resolveServiceTierForModel(model, state, config.supportedModels);
@@ -338,7 +375,7 @@ export default function openAIServiceTier(pi: ExtensionAPI): void {
     },
   });
 
-  pi.registerProvider("pi-openai-service-tier:openai-codex-responses", {
+  pi.registerProvider("openai-codex", {
     api: "openai-codex-responses",
     streamSimple(model, context: Context, options?: SimpleStreamOptions) {
       const serviceTier = resolveServiceTierForModel(model, state, config.supportedModels);

@@ -15,7 +15,7 @@ npm run check
 
 ```bash
 pi -e ./index.ts --list-models
-pi -e ./index.ts --provider openai-codex --model gpt-5.5 --fast
+pi -e ./index.ts --provider openai-codex --model gpt-5.6-sol --fast
 ```
 
 ## Pull requests
