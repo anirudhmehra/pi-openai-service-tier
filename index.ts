@@ -2,34 +2,41 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { dirname, join } from "node:path";
 import {
+  calculateCost,
   clampThinkingLevel,
+  lazyStream,
   streamOpenAICodexResponses,
   streamOpenAIResponses,
   type Api,
-  type Context,
+  type TranscriptContext,
   type Model,
   type ModelThinkingLevel,
   type SimpleStreamOptions,
-} from "@mariozechner/pi-ai";
-import type { ExtensionAPI, ExtensionContext } from "@mariozechner/pi-coding-agent";
+} from "@earendil-works/pi-ai/compat";
+import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
 
 const COMMAND_FAST = "fast";
+const COMMAND_ULTRAFAST = "ultrafast";
 const COMMAND_TIER = "openai-tier";
 const FLAG_FAST = "fast";
 const STATUS_KEY = "pi-openai-service-tier";
 const CONFIG_BASENAME = "pi-openai-service-tier.json";
 
-export const SERVICE_TIERS = ["priority", "flex", "default", "auto", "scale"] as const;
+export const SERVICE_TIERS = ["priority", "flex", "default", "auto", "scale", "ultrafast"] as const;
 export type ServiceTier = (typeof SERVICE_TIERS)[number];
 
 const OPENAI_RESPONSES_SERVICE_TIERS = SERVICE_TIERS;
-const OPENAI_CODEX_RESPONSES_SERVICE_TIERS = ["priority"] as const satisfies readonly ServiceTier[];
+const OPENAI_CODEX_RESPONSES_SERVICE_TIERS = ["priority", "ultrafast"] as const satisfies readonly ServiceTier[];
 
 export const DEFAULT_SUPPORTED_MODELS = [
   "openai/gpt-5.4",
   "openai/gpt-5.5",
+  "openai/gpt-6-astra",
+  "openai/gpt-6.1-sol",
   "openai-codex/gpt-5.4",
   "openai-codex/gpt-5.5",
+  "openai-codex/gpt-6-astra",
+  "openai-codex/gpt-6.1-sol",
 ] as const;
 
 export interface SupportedModel {
@@ -175,12 +182,13 @@ export function resolveConfig(cwd: string, home = homedir()): ResolvedConfig {
 }
 
 export function supportedServiceTiersForModel(
-  model: Pick<Model<Api>, "api"> | undefined,
+  model: Pick<Model<Api>, "api" | "id"> | undefined,
 ): readonly ServiceTier[] {
   if (!model) return [];
-  if (model.api === "openai-responses") return OPENAI_RESPONSES_SERVICE_TIERS;
-  if (model.api === "openai-codex-responses") return OPENAI_CODEX_RESPONSES_SERVICE_TIERS;
-  return [];
+  const tiers = model.api === "openai-responses" ? OPENAI_RESPONSES_SERVICE_TIERS
+    : model.api === "openai-codex-responses" ? OPENAI_CODEX_RESPONSES_SERVICE_TIERS : [];
+  return model.id === "gpt-6-astra" || model.id === "gpt-6.1-sol"
+    ? tiers : tiers.filter((tier) => tier !== "ultrafast");
 }
 
 export function supportsServiceTier(
@@ -239,7 +247,7 @@ function buildFullOpenAIOptions(
 
 function statusText(ctx: ExtensionContext, state: RuntimeState, config: ResolvedConfig): string {
   const serviceTier = resolveServiceTierForModel(ctx.model, state, config.supportedModels);
-  if (serviceTier) return `${ctx.model?.id ?? "model"} ${serviceTier}`;
+  if (serviceTier) return `${ctx.model?.id ?? "model"} ${serviceTier} requested`;
   if (state.active && supportsServiceTier(ctx.model, config.supportedModels)) {
     return `${ctx.model?.id ?? "model"} ${state.serviceTier} unsupported`;
   }
@@ -248,6 +256,7 @@ function statusText(ctx: ExtensionContext, state: RuntimeState, config: Resolved
 }
 
 export default function openAIServiceTier(pi: ExtensionAPI): void {
+  let sessionContext: ExtensionContext | undefined;
   let config: ResolvedConfig = defaultResolvedConfig(process.cwd());
   let state: RuntimeState = {
     active: config.active,
@@ -277,7 +286,7 @@ export default function openAIServiceTier(pi: ExtensionAPI): void {
   function notifyStatus(ctx: ExtensionContext): void {
     const tier = resolveServiceTierForModel(ctx.model, state, config.supportedModels);
     if (tier) {
-      ctx.ui.notify(`OpenAI service tier: ${tier} for ${modelKey(ctx.model)}. Cost accounting uses Pi's serviceTier option.`, "info");
+      ctx.ui.notify(`OpenAI service tier ${tier} requested for ${modelKey(ctx.model)}. Costs are API-price estimates; Codex access and subscription usage depend on your plan.${tier === "ultrafast" ? " Ultrafast API pricing is 6x Standard." : ""}`, "info");
       return;
     }
     if (state.active && supportsServiceTier(ctx.model, config.supportedModels)) {
@@ -299,7 +308,6 @@ export default function openAIServiceTier(pi: ExtensionAPI): void {
   }
 
   function setActive(ctx: ExtensionContext, active: boolean): void {
-    refreshConfig(ctx);
     state.active = active;
     persistState(config);
     updateStatus(ctx);
@@ -307,15 +315,8 @@ export default function openAIServiceTier(pi: ExtensionAPI): void {
   }
 
   function setTier(ctx: ExtensionContext, serviceTier: ServiceTier): void {
-    refreshConfig(ctx);
     state = { active: true, serviceTier };
-    writeConfig(config.configPath, {
-      ...(readConfig(config.configPath) ?? {}),
-      ...(config.persistState ? { active: true } : {}),
-      serviceTier,
-      supportedModels: config.supportedModels.map((model) => `${model.provider}/${model.id}`),
-    });
-    config = { ...config, active: state.active, serviceTier };
+    persistState(config);
     updateStatus(ctx);
     notifyStatus(ctx);
   }
@@ -326,53 +327,76 @@ export default function openAIServiceTier(pi: ExtensionAPI): void {
     default: false,
   });
 
-  pi.registerProvider("pi-openai-service-tier:openai-responses", {
-    api: "openai-responses",
-    streamSimple(model, context: Context, options?: SimpleStreamOptions) {
-      const serviceTier = resolveServiceTierForModel(model, state, config.supportedModels);
-      return streamOpenAIResponses(
-        model as Model<"openai-responses">,
-        context,
-        buildFullOpenAIOptions(model, options, serviceTier) as never,
-      );
-    },
-  });
-
-  pi.registerProvider("pi-openai-service-tier:openai-codex-responses", {
-    api: "openai-codex-responses",
-    streamSimple(model, context: Context, options?: SimpleStreamOptions) {
-      const serviceTier = resolveServiceTierForModel(model, state, config.supportedModels);
-      return streamOpenAICodexResponses(
-        model as Model<"openai-codex-responses">,
-        context,
-        buildFullOpenAIOptions(model, options, serviceTier) as never,
-      );
-    },
-  });
-
-  pi.registerCommand(COMMAND_FAST, {
-    description: "Toggle cost-correct OpenAI priority service tier",
-    getArgumentCompletions: (prefix) => {
-      const values = ["on", "off", "status"];
-      const items = values.filter((value) => value.startsWith(prefix.trim().toLowerCase()));
-      return items.length ? items.map((value) => ({ value, label: value })) : null;
-    },
-    handler: async (args, ctx) => {
-      const arg = args.trim().toLowerCase();
-      if (!arg) return setActive(ctx, !state.active);
-      if (arg === "on") return setActive(ctx, true);
-      if (arg === "off") return setActive(ctx, false);
-      if (arg === "status") {
-        refreshConfig(ctx);
-        updateStatus(ctx);
-        return notifyStatus(ctx);
+  function streamWithTier(model: Model<Api>, context: TranscriptContext, options?: SimpleStreamOptions) {
+    const requestedTier = resolveServiceTierForModel(model, state, config.supportedModels);
+    let returnedTier: ServiceTier | undefined;
+    const fullOptions = buildFullOpenAIOptions(model, options, requestedTier);
+    if (requestedTier) {
+      fullOptions.onProviderStreamEvent = async (data, streamModel) => {
+        if (isRecord(data) && (data.type === "response.completed" || data.type === "response.done" || data.type === "response.incomplete") && isRecord(data.response)) {
+          const tier = data.response.service_tier;
+          returnedTier = tier === "fast" ? "priority" : isServiceTier(tier) ? tier : undefined;
+        }
+        await options?.onProviderStreamEvent?.(data, streamModel);
+      };
+    }
+    const source = model.api === "openai-responses"
+      ? streamOpenAIResponses(model as Model<"openai-responses">, context, fullOptions as never)
+      : streamOpenAICodexResponses(model as Model<"openai-codex-responses">, context, fullOptions as never);
+    if (!requestedTier) return source;
+    return lazyStream(model, async () => (async function* () {
+      for await (const event of source) {
+        if (event.type === "done") {
+          // Codex can echo "default" for paid tiers; preserve Pi's requested-tier estimate in that case.
+          const codexDefault = model.api === "openai-codex-responses" && returnedTier === "default";
+          const tier = codexDefault ? requestedTier : returnedTier ?? requestedTier;
+          const usage = event.message.usage;
+          calculateCost(model, usage);
+          let multiplier = 1;
+          if (tier === "ultrafast") multiplier = 6;
+          else if (tier === "priority") multiplier = model.id === "gpt-5.5" ? 2.5 : 2;
+          else if (tier === "flex") multiplier = 0.5;
+          for (const key of ["input", "output", "cacheRead", "cacheWrite", "total"] as const) {
+            usage.cost[key] *= multiplier;
+          }
+          if (sessionContext && state.active && state.serviceTier === requestedTier && modelKey(sessionContext.model) === modelKey(model)) {
+            const status = codexDefault ? "unconfirmed (backend default)" : returnedTier ?? "unconfirmed";
+            sessionContext.ui.setStatus(STATUS_KEY, `${model.id} ${status} (requested ${requestedTier})`);
+          }
+        }
+        yield event;
       }
-      ctx.ui.notify("Usage: /fast [on|off|status]", "error");
-    },
-  });
+    })());
+  }
+
+  pi.registerProvider("openai", { api: "openai-responses", streamSimple: streamWithTier });
+  pi.registerProvider("openai-codex", { api: "openai-codex-responses", streamSimple: streamWithTier });
+
+  for (const [command, serviceTier] of [[COMMAND_FAST, "priority"], [COMMAND_ULTRAFAST, "ultrafast"]] as const) {
+    pi.registerCommand(command, {
+      description: `Toggle OpenAI ${serviceTier} service tier`,
+      getArgumentCompletions: (prefix) => {
+        const items = ["on", "off", "status"].filter((value) => value.startsWith(prefix.trim().toLowerCase()));
+        return items.length ? items.map((value) => ({ value, label: value })) : null;
+      },
+      handler: async (args, ctx) => {
+        const arg = args.trim().toLowerCase();
+        if (!arg) {
+          return state.active && state.serviceTier === serviceTier ? setActive(ctx, false) : setTier(ctx, serviceTier);
+        }
+        if (arg === "on") return setTier(ctx, serviceTier);
+        if (arg === "off") return setActive(ctx, false);
+        if (arg === "status") {
+          updateStatus(ctx);
+          return notifyStatus(ctx);
+        }
+        ctx.ui.notify(`Usage: /${command} [on|off|status]`, "error");
+      },
+    });
+  }
 
   pi.registerCommand(COMMAND_TIER, {
-    description: "Set OpenAI service tier (priority, flex, default, auto, scale, off, status)",
+    description: "Set OpenAI service tier (priority, ultrafast, flex, default, auto, scale, off, status)",
     getArgumentCompletions: (prefix) => {
       const values = [...SERVICE_TIERS, "off", "status"];
       const items = values.filter((value) => value.startsWith(prefix.trim().toLowerCase()));
@@ -381,17 +405,17 @@ export default function openAIServiceTier(pi: ExtensionAPI): void {
     handler: async (args, ctx) => {
       const arg = args.trim().toLowerCase();
       if (!arg || arg === "status") {
-        refreshConfig(ctx);
         updateStatus(ctx);
         return notifyStatus(ctx);
       }
       if (arg === "off") return setActive(ctx, false);
       if (isServiceTier(arg)) return setTier(ctx, arg);
-      ctx.ui.notify("Usage: /openai-tier [priority|flex|default|auto|scale|off|status]", "error");
+      ctx.ui.notify("Usage: /openai-tier [priority|ultrafast|flex|default|auto|scale|off|status]", "error");
     },
   });
 
   pi.on("session_start", async (_event, ctx) => {
+    sessionContext = ctx;
     refreshConfig(ctx);
     if (pi.getFlag(FLAG_FAST) === true) {
       state.active = true;
@@ -403,10 +427,12 @@ export default function openAIServiceTier(pi: ExtensionAPI): void {
   });
 
   pi.on("model_select", async (_event, ctx) => {
+    sessionContext = ctx;
     updateStatus(ctx);
   });
 
   pi.on("session_shutdown", async (_event, ctx) => {
+    sessionContext = undefined;
     ctx.ui.setStatus(STATUS_KEY, undefined);
   });
 }
@@ -415,6 +441,7 @@ export const _test = {
   CONFIG_BASENAME,
   DEFAULT_CONFIG,
   COMMAND_FAST,
+  COMMAND_ULTRAFAST,
   COMMAND_TIER,
   FLAG_FAST,
   STATUS_KEY,
