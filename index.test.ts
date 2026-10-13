@@ -144,6 +144,19 @@ test("applies configured tier only when active, allow-listed, and tier-supported
   );
 });
 
+test("Ultrafast API headers replace conflicting casing without mutating caller headers", () => {
+  const headers = { "openai-service-tier": "default", "X-Caller": "preserved", "X-Remove": null };
+  for (const id of ["gpt-6-astra", "gpt-6.1-sol"]) {
+    const options = _test.buildFullOpenAIOptions({ ...openAIModel, id }, { headers }, "ultrafast");
+    const tiers = Object.entries(options.headers ?? {})
+      .filter(([name]) => name.toLowerCase() === "openai-service-tier").map(([, value]) => value);
+    assert.deepEqual(tiers, ["ultrafast"]);
+    assert.equal(options.headers?.["X-Caller"], "preserved");
+    assert.equal(options.headers?.["X-Remove"], null);
+  }
+  assert.deepEqual(headers, { "openai-service-tier": "default", "X-Caller": "preserved", "X-Remove": null });
+});
+
 test("full provider options include serviceTier for Pi cost accounting", () => {
   const options = _test.buildFullOpenAIOptions(openAIModel, { reasoning: "high" }, "priority");
   assert.equal(options.serviceTier, "priority");
@@ -290,10 +303,13 @@ test("both providers send the requested tier and price the returned tier", async
           ...solModel,
           provider,
           api: provider === "openai" ? "openai-responses" : "openai-codex-responses",
+          headers: provider === "openai" && requested === "ultrafast" ? { "openai-service-tier": "default" } : undefined,
         };
         const fixture = await extensionFixture(t, { active: true, serviceTier: requested as ServiceTier }, model);
         let payload: Record<string, unknown> | undefined;
+        let requestHeaders: Headers | undefined;
         t.mock.method(globalThis, "fetch", async (_url: unknown, init: RequestInit) => {
+          requestHeaders = new Headers(init.headers);
           const body = typeof init.body === "string" ? init.body : zstdDecompressSync(init.body as Uint8Array).toString();
           payload = JSON.parse(body);
           const completed = {
@@ -320,10 +336,14 @@ test("both providers send the requested tier and price the returned tier", async
           apiKey: token,
           transport: "sse",
           reasoning: "high",
+          headers: { "X-Caller": "preserved" },
           onProviderStreamEvent(data) { observedEvents.push(data); },
         }).result();
         assert.equal(result.stopReason, "stop", result.errorMessage);
         assert.equal(payload?.service_tier, requested);
+        assert.equal(requestHeaders?.get("OpenAI-Service-Tier"),
+          provider === "openai" && requested === "ultrafast" ? "ultrafast" : null);
+        assert.equal(requestHeaders?.get("X-Caller"), "preserved");
         assert.deepEqual(payload?.reasoning, { effort: "high", summary: "auto" });
         assert.equal(observedEvents.length, 1);
         const codexDefault = provider === "openai-codex" && returned === "default";

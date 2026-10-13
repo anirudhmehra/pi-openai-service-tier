@@ -1,5 +1,14 @@
 # Changelog
 
+## Unreleased
+
+- Add `/ultrafast` and `/openai-tier ultrafast` requests for GPT-6 Astra and GPT-6.1 Sol on OpenAI API and Codex.
+- Include the required `OpenAI-Service-Tier: ultrafast` header for OpenAI API Ultrafast requests only.
+- Make `/fast on` select Priority after another tier and keep non-persistent changes through status checks.
+- Use returned-tier API-price estimates, normalize the returned `fast` alias, and handle Ultrafast/GPT-5.5 multipliers.
+- Mark Codex's ambiguous returned `default` as unconfirmed rather than claiming the requested speedup or subscription billing.
+- Require Pi 1.1.0+ (`@earendil-works` packages) and Node.js 22.19.0+.
+
 ## 0.1.4 - 2026-05-03
 
 - Make npm the primary install path in the README.

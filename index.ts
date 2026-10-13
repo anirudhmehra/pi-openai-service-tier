@@ -237,12 +237,22 @@ function buildFullOpenAIOptions(
 ): OpenAIServiceTierOptions {
   const clampedReasoning = options?.reasoning ? clampThinkingLevel(model, options.reasoning) : undefined;
   const reasoningEffort = clampedReasoning === "off" ? undefined : clampedReasoning;
-  return {
+  const fullOptions: OpenAIServiceTierOptions = {
     ...options,
     maxTokens: options?.maxTokens ?? (model.maxTokens > 0 ? Math.min(model.maxTokens, 32_000) : undefined),
     reasoningEffort,
     ...(serviceTier ? { serviceTier } : {}),
   };
+  if (model.api === "openai-responses" && serviceTier === "ultrafast") {
+    // The Ultrafast API alpha requires this header in addition to service_tier.
+    const headers = { ...options?.headers };
+    for (const name of Object.keys(headers)) {
+      if (name.toLowerCase() === "openai-service-tier") delete headers[name];
+    }
+    headers["OpenAI-Service-Tier"] = "ultrafast";
+    fullOptions.headers = headers;
+  }
+  return fullOptions;
 }
 
 function statusText(ctx: ExtensionContext, state: RuntimeState, config: ResolvedConfig): string {
